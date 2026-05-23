@@ -1,0 +1,215 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "open-webui.fullname" . }}-api
+  labels:
+    {{- include "open-webui.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.hpa.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "open-webui.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "open-webui.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- if .Values.api.affinity }}
+      affinity:
+        {{- toYaml .Values.api.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.api.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml .Values.api.tolerations | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: open-webui
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          env:
+            - name: PORT
+              value: "8080"
+            - name: WEBUI_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: webui-secret-key
+
+            # ---------------------------------------------------------
+            # PostgreSQL Database Environment Configuration
+            # ---------------------------------------------------------
+            {{- if .Values.postgres.cnpg.enabled }}
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-postgres-app
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-postgres-app
+                  key: password
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-postgres-app
+                  key: dbname
+            - name: DATABASE_URL
+              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-postgres-rw:5432/$(PGDATABASE)"
+            {{- else if .Values.postgres.external.enabled }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-postgres-url
+            {{- end }}
+
+            # ---------------------------------------------------------
+            # Redis WebSockets & Cache Configuration
+            # ---------------------------------------------------------
+            {{- if or .Values.redis.enabled .Values.redis.external.enabled }}
+            - name: WEBSOCKET_MANAGER
+              value: "redis"
+            - name: ENABLE_WEBSOCKET_SUPPORT
+              value: "true"
+            - name: WEBSOCKET_REDIS_URL
+              {{- if .Values.redis.enabled }}
+              {{- if .Values.redis.sentinel.enabled }}
+              value: "redis://{{ .Release.Name }}-redis-sentinel:26379/0?sentinel={{ .Values.redis.sentinel.masterName }}"
+              {{- else }}
+              value: "redis://{{ .Release.Name }}-redis-master:6379/0"
+              {{- end }}
+              {{- else if .Values.redis.external.enabled }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-redis-url
+              {{- end }}
+            - name: REDIS_URL
+              {{- if .Values.redis.enabled }}
+              {{- if .Values.redis.sentinel.enabled }}
+              value: "redis://{{ .Release.Name }}-redis-sentinel:26379/0?sentinel={{ .Values.redis.sentinel.masterName }}"
+              {{- else }}
+              value: "redis://{{ .Release.Name }}-redis-master:6379/0"
+              {{- end }}
+              {{- else if .Values.redis.external.enabled }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-redis-url
+              {{- end }}
+            {{- end }}
+
+            # ---------------------------------------------------------
+            # Qdrant Vector DB / RAG Configuration
+            # ---------------------------------------------------------
+            {{- if or .Values.qdrant.enabled .Values.qdrant.external.enabled }}
+            - name: VECTOR_DB
+              value: "qdrant"
+            - name: QDRANT_URI
+              {{- if .Values.qdrant.enabled }}
+              value: "http://{{ .Release.Name }}-qdrant:6333"
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-qdrant-url
+              {{- end }}
+            {{- end }}
+
+            # ---------------------------------------------------------
+            # MinIO / S3 Object Storage Configuration
+            # ---------------------------------------------------------
+            {{- if or .Values.minio.enabled .Values.minio.external.enabled }}
+            - name: STORAGE_PROVIDER
+              value: "S3"
+            - name: S3_ENDPOINT_URL
+              {{- if .Values.minio.enabled }}
+              value: "http://{{ .Release.Name }}-minio:9000"
+              {{- else }}
+              value: "{{ .Values.minio.external.endpoint }}"
+              {{- end }}
+            - name: S3_ACCESS_KEY_ID
+              {{- if .Values.minio.enabled }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: minio-access-key
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-s3-access-key
+              {{- end }}
+            - name: S3_SECRET_ACCESS_KEY
+              {{- if .Values.minio.enabled }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: minio-secret-key
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-s3-secret-key
+              {{- end }}
+            - name: S3_BUCKET_NAME
+              {{- if .Values.minio.enabled }}
+              value: "{{ .Values.minio.bucketName }}"
+              {{- else }}
+              value: "{{ .Values.minio.external.bucketName }}"
+              {{- end }}
+            - name: S3_REGION_NAME
+              {{- if .Values.minio.enabled }}
+              value: "us-east-1"
+              {{- else }}
+              value: "{{ .Values.minio.external.region }}"
+              {{- end }}
+            {{- end }}
+
+            # ---------------------------------------------------------
+            # Inference / Model Endpoints Configuration
+            # ---------------------------------------------------------
+            {{- if .Values.gateway.enabled }}
+            - name: OPENAI_API_BASE_URLS
+              value: "http://{{ .Release.Name }}-inference-gateway:8000/v1"
+            - name: OPENAI_API_KEYS
+              value: "{{ .Values.gateway.masterKey }}"
+            {{- end }}
+
+            # Additional environment configurations defined in values
+            {{- if .Values.api.extraEnv }}
+            {{- toYaml .Values.api.extraEnv | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}

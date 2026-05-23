@@ -1,0 +1,81 @@
+{{- if .Values.gateway.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-inference-gateway
+  labels:
+    {{- include "open-webui.labels" . | nindent 4 }}
+    app.kubernetes.io/component: inference-gateway
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "open-webui.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: inference-gateway
+  template:
+    metadata:
+      labels:
+        {{- include "open-webui.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: inference-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+          command:
+            - litellm
+            - --config
+            - /app/config.yaml
+            - --port
+            - "8000"
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: LITELLM_MASTER_KEY
+              value: "{{ .Values.gateway.masterKey }}"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: openai-api-key
+            - name: NVIDIA_API_KEY                                  # ← ADD THIS BLOCK
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+      key: nvidia-api-key
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: anthropic-api-key
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi 
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-gateway-config
+{{- end }}

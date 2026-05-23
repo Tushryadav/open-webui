@@ -1,0 +1,18 @@
+{{- if .Values.vllm.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-vllm
+  labels:
+    {{- include "open-webui.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vllm
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    {{- include "open-webui.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: vllm
+{{- end }}

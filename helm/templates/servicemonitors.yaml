@@ -1,0 +1,35 @@
+{{- if .Values.observability.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "open-webui.fullname" . }}-api-monitor
+  labels:
+    {{- include "open-webui.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "open-webui.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: http
+      path: {{ .Values.observability.serviceMonitor.path | default "/metrics" }}
+      interval: {{ .Values.observability.serviceMonitor.interval | default "30s" }}
+---
+{{- if .Values.gateway.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "open-webui.fullname" . }}-gateway-monitor
+  labels:
+    {{- include "open-webui.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "open-webui.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: inference-gateway
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.observability.serviceMonitor.interval | default "30s" }}
+{{- end }}
+{{- end }}

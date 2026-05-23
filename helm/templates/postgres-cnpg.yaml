@@ -1,0 +1,38 @@
+{{- if .Values.postgres.cnpg.enabled -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-postgres
+  labels:
+    {{- include "open-webui.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  instances: {{ .Values.postgres.cnpg.instances }}
+
+  # Supervised primary update strategy is recommended for HA
+  primaryUpdateStrategy: unsupervised
+
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: openwebui
+      owner: openwebui
+
+  # Storage configuration for data
+  storage:
+    size: {{ .Values.postgres.cnpg.storage.size }}
+    {{- if .Values.postgres.cnpg.storage.storageClass }}
+    storageClass: {{ .Values.postgres.cnpg.storage.storageClass }}
+    {{- end }}
+
+  # Dedicated WAL storage for write performance
+  walStorage:
+    size: {{ .Values.postgres.cnpg.walStorage.size }}
+    {{- if .Values.postgres.cnpg.walStorage.storageClass }}
+    storageClass: {{ .Values.postgres.cnpg.walStorage.storageClass }}
+    {{- end }}
+
+  # Monitoring configuration
+  monitoring:
+    enablePodMonitor: true
+{{- end }}
