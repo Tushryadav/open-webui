@@ -44,7 +44,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ include "open-webui.fullname" . }}-secrets
-      key: nvidia-api-key
+                  key: nvidia-api-key
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -64,11 +64,11 @@ spec:
             periodSeconds: 10
           resources:
             limits:
-              cpu: 500m
-              memory: 512Mi 
+              cpu: 1000m
+              memory: 2Gi 
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 250m
+              memory: 512Mi
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml

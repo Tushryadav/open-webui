@@ -40,8 +40,8 @@ api:
       cpu: 1000m
       memory: 2Gi
     requests:
-      cpu: 250m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 1Gi
 
   service:
     type: ClusterIP
@@ -57,14 +57,11 @@ api:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/websocket-services: "open-webui-api"
     hosts:
-      - host: openwebui.example.com
+      - host: "openwebui.20.46.228.117.nip.io"
         paths:
           - path: /
             pathType: Prefix
-    tls:
-      - secretName: openwebui-tls
-        hosts:
-          - openwebui.example.com
+    tls: []
 
   # Autoscaling (HPA)
   hpa:
@@ -105,6 +102,8 @@ postgres:
   cnpg:
     enabled: true
     instances: 3
+    monitoring:
+      enablePodMonitor: false
     storage:
       size: 10Gi
       storageClass: ""
@@ -151,7 +150,7 @@ qdrant:
 
 # MinIO (Shared object storage for PDFs/Images/Uploads)
 minio:
-  enabled: true
+  enabled: false
   image:
     repository: minio/minio
     tag: RELEASE.2024-05-10T01-39-18Z
@@ -172,6 +171,10 @@ minio:
     bucketName: ""
     region: "us-east-1"
 
+azure:
+  storageEndpoint: ""  # ← your storage account URL
+  storageKey: ""                   # ← your key
+  storageContainer: "" 
 # =====================================================================
 # 3. MODEL INFERENCE & ROUTING LAYER
 # =====================================================================

@@ -150,52 +150,23 @@ spec:
             # ---------------------------------------------------------
             # MinIO / S3 Object Storage Configuration
             # ---------------------------------------------------------
-            {{- if or .Values.minio.enabled .Values.minio.external.enabled }}
             - name: STORAGE_PROVIDER
-              value: "S3"
-            - name: S3_ENDPOINT_URL
-              {{- if .Values.minio.enabled }}
-              value: "http://{{ .Release.Name }}-minio:9000"
-              {{- else }}
-              value: "{{ .Values.minio.external.endpoint }}"
-              {{- end }}
-            - name: S3_ACCESS_KEY_ID
-              {{- if .Values.minio.enabled }}
+              value: "azure"
+            - name: AZURE_STORAGE_ENDPOINT
               valueFrom:
                 secretKeyRef:
                   name: {{ include "open-webui.fullname" . }}-secrets
-                  key: minio-access-key
-              {{- else }}
+                  key: azure-storage-endpoint
+            - name: AZURE_STORAGE_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "open-webui.fullname" . }}-secrets
-                  key: external-s3-access-key
-              {{- end }}
-            - name: S3_SECRET_ACCESS_KEY
-              {{- if .Values.minio.enabled }}
+                  key: azure-storage-key
+            - name: AZURE_STORAGE_CONTAINER_NAME
               valueFrom:
                 secretKeyRef:
                   name: {{ include "open-webui.fullname" . }}-secrets
-                  key: minio-secret-key
-              {{- else }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "open-webui.fullname" . }}-secrets
-                  key: external-s3-secret-key
-              {{- end }}
-            - name: S3_BUCKET_NAME
-              {{- if .Values.minio.enabled }}
-              value: "{{ .Values.minio.bucketName }}"
-              {{- else }}
-              value: "{{ .Values.minio.external.bucketName }}"
-              {{- end }}
-            - name: S3_REGION_NAME
-              {{- if .Values.minio.enabled }}
-              value: "us-east-1"
-              {{- else }}
-              value: "{{ .Values.minio.external.region }}"
-              {{- end }}
-            {{- end }}
+                  key: azure-storage-container
 
             # ---------------------------------------------------------
             # Inference / Model Endpoints Configuration
