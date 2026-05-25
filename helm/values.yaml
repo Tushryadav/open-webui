@@ -1,10 +1,3 @@
-# Default values for open-webui-production.
-# This is a YAML-formatted file.
-
-# Overrides for names
-nameOverride: ""
-fullnameOverride: ""
-
 # =====================================================================
 # 1. FRONTEND & API LAYER (Open WebUI API Pods)
 # =====================================================================
@@ -21,7 +14,6 @@ api:
   webuiSecretKey: ""
 
   # Persistence settings if local SQLite or local configs are needed
-  # Note: PostgreSQL + Redis + MinIO are active in this production design, 
   # making the API pods stateless.
   persistence:
     enabled: false
@@ -111,7 +103,7 @@ postgres:
       size: 5Gi
       storageClass: ""
   
-  # Configuration when postgres.cnpg.enabled is false (connecting to an external PG database)
+# Configuration when postgres.cnpg.enabled is false (connecting to an external PG database)
   external:
     enabled: false
     url: "postgresql://user:password@external-pg-host:5432/openwebui"
@@ -143,7 +135,7 @@ qdrant:
     size: 10Gi
     storageClass: ""
   
-  # Connect to an external Qdrant instance
+# Connect to an external Qdrant instance
   external:
     enabled: false
     url: "http://external-qdrant:6333"
@@ -162,18 +154,20 @@ minio:
     size: 20Gi
     storageClass: ""
   
-  # Connect to external S3 storage
-  external:
-    enabled: false
-    endpoint: "https://s3.amazonaws.com"
-    accessKey: ""
-    secretKey: ""
-    bucketName: ""
-    region: "us-east-1"
+# Connect to external S3 storage
+external:
+  enabled: false
+  endpoint: "https://s3.amazonaws.com"
+  accessKey: ""
+  secretKey: ""
+  bucketName: ""
+  region: "us-east-1"
 
+# Connect to external blob storage
 azure:
-  storageEndpoint: ""  # ← your storage account URL
-  storageKey: ""                   # ← your key
+  enabled: true
+  storageEndpoint: ""  
+  storageKey: ""
   storageContainer: "" 
 # =====================================================================
 # 3. MODEL INFERENCE & ROUTING LAYER
