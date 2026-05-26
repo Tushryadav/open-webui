@@ -10,6 +10,11 @@ fullnameOverride: ""
 # =====================================================================
 api:
   image:
+  observability:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
     repository: ghcr.io/open-webui/open-webui
     tag: "main"
     pullPolicy: IfNotPresent
@@ -30,10 +35,25 @@ api:
 
   # Additional Environment variables
   extraEnv:
+    - name: ENABLE_OTEL_METRICS
+      value: "True"
+    - name: OTEL_SERVICE_NAME
+      value: "open-webui"
+    - name: OTEL_METRICS_EXPORTER_OTLP_ENDPOINT
+      value: "http://otel-collector.monitoring.svc.cluster.local:4317"
+    - name: OTEL_METRICS_EXPORTER_OTLP_INSECURE
+      value: "True"
+    - name: OTEL_METRICS_OTLP_SPAN_EXPORTER
+      value: "grpc"
+    - name: OTEL_METRICS_EXPORT_INTERVAL_MILLIS
+      value: "15000"
+    # existing vars below
     - name: ENABLE_PERSISTENT_CONFIG
       value: "False"
     - name: ENABLE_DB_MIGRATIONS
       value: "True"
+    - name: STORAGE_PROVIDER
+      value: "azure"
 
   resources:
     limits:

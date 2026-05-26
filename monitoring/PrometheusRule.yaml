@@ -1,0 +1,178 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: owui-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    # ── Pod Health ────────────────────────────────────────────────────
+    - name: pod-health
+      rules:
+        - alert: PodOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod OOMKilled: {{ $labels.pod }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} was OOMKilled"
+
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod crash looping: {{ $labels.pod }}"
+
+        - alert: PodNotReady
+          expr: kube_pod_status_ready{condition="false"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod not ready: {{ $labels.pod }}"
+
+    # ── API Layer ─────────────────────────────────────────────────────
+    - name: api-layer
+      rules:
+        - alert: APIHighMemory
+          expr: |
+            container_memory_usage_bytes{namespace="owui-app", container="open-webui"}
+            / container_spec_memory_limit_bytes{namespace="owui-app", container="open-webui"}
+            > 0.80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Open WebUI API memory > 80%"
+            description: "Pod {{ $labels.pod }} memory at {{ $value | humanizePercentage }}"
+
+        - alert: GatewayHighMemory
+          expr: |
+            container_memory_usage_bytes{namespace="owui-app", container="gateway"}
+            / container_spec_memory_limit_bytes{namespace="owui-app", container="gateway"}
+            > 0.80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "LiteLLM Gateway memory > 80%"
+
+        - alert: HPAAtMaxReplicas
+          expr: kube_horizontalpodautoscaler_status_current_replicas == kube_horizontalpodautoscaler_spec_max_replicas
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "HPA at max replicas: {{ $labels.horizontalpodautoscaler }}"
+
+    # ── Postgres ──────────────────────────────────────────────────────
+    - name: postgres
+      rules:
+        - alert: PostgresDown
+          expr: cnpg_pg_up == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PostgreSQL instance down: {{ $labels.pod }}"
+
+        - alert: PostgresReplicationLag
+          expr: cnpg_pg_replication_lag > 30
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Postgres replication lag > 30s"
+            description: "Lag is {{ $value }}s on {{ $labels.pod }}"
+
+        - alert: PostgresHighConnections
+          expr: cnpg_pg_stat_activity_count > 80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Postgres connections > 80"
+
+    # ── Redis ─────────────────────────────────────────────────────────
+    - name: redis
+      rules:
+        - alert: RedisDown
+          expr: redis_up == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis instance down: {{ $labels.instance }}"
+
+        - alert: RedisHighMemory
+          expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Redis memory > 85%"
+
+        - alert: RedisSentinelQuorumLost
+          expr: redis_sentinel_ok_sentinels < 2
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis Sentinel quorum lost — failover at risk"
+
+    # ── Storage ───────────────────────────────────────────────────────
+    - name: storage
+      rules:
+        - alert: PVCUsageHigh
+          expr: |
+            kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes > 0.80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PVC usage > 80%: {{ $labels.persistentvolumeclaim }}"
+            description: "Usage: {{ $value | humanizePercentage }}"
+
+        - alert: PVCAlmostFull
+          expr: |
+            kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes > 0.90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PVC almost full: {{ $labels.persistentvolumeclaim }}"
+
+    # ── Node ──────────────────────────────────────────────────────────
+    - name: node
+      rules:
+        - alert: NodeHighMemory
+          expr: |
+            (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
+            / node_memory_MemTotal_bytes > 0.85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node memory usage > 85%"
+
+        - alert: NodeHighCPU
+          expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node CPU > 85%"
+
+        - alert: NodeDiskHigh
+          expr: |
+            (node_filesystem_size_bytes - node_filesystem_free_bytes)
+            / node_filesystem_size_bytes > 0.80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node disk usage > 80%"

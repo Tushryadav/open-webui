@@ -1,0 +1,46 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: owui-alerts
+  namespace: monitoring
+spec:
+  route:
+    receiver: default
+    groupBy: ['namespace', 'alertname']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 12h
+    routes:
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: critical
+      - matchers:
+          - name: severity
+            value: warning
+        receiver: warning
+
+  receivers:
+    - name: default
+      emailConfigs:
+        - to: your@email.com                   # CHANGE THIS
+          from: alerts@yourdomain.com
+          smarthost: smtp.gmail.com:587
+          authUsername: your@gmail.com
+          authPassword: your-app-password
+
+    - name: critical
+      emailConfigs:
+        - to: your@email.com
+          from: alerts@yourdomain.com
+          smarthost: smtp.gmail.com:587
+          authUsername: your@gmail.com
+          authPassword: your-app-password
+
+    - name: warning
+      emailConfigs:
+        - to: your@email.com
+          from: alerts@yourdomain.com
+          smarthost: smtp.gmail.com:587
+          authUsername: your@gmail.com
+          authPassword: your-app-password
