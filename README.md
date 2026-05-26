@@ -56,85 +56,85 @@ Running Postgres as a plain StatefulSet on Kubernetes means manually handling fa
                                  ▼
  ┌─────────────────────── owui-app namespace ──────────────────────────┐
  │                                                                     │
- │   ┌─────────────────────────────────────┐                          │
- │   │       Open WebUI API                │                          │
- │   │   Deployment — 3 pods (HPA → 10)    │                          │
- │   │   PodDisruptionBudget: min 2 alive  │                          │
- │   │   OTel SDK → Prometheus metrics     │                          │
- │   └──────────────┬──────────────────────┘                          │
+ │   ┌─────────────────────────────────────┐                           │
+ │   │       Open WebUI API                │                           │
+ │   │   Deployment — 3 pods (HPA → 10)    │                           │
+ │   │   PodDisruptionBudget: min 2 alive  │                           │
+ │   │   OTel SDK → Prometheus metrics     │                           │
+ │   └──────────────┬──────────────────────┘                           │
  │                  │ http://inference-gateway:8000/v1                 │
  │                  ▼                                                  │
- │   ┌─────────────────────────────────────┐                          │
- │   │       LiteLLM Inference Gateway     │                          │
- │   │   Deployment — 2 pods               │                          │
- │   │   Routes per model config in        │                          │
- │   │   ConfigMap → NVIDIA NIM APIs       │                          │
- │   └──────────────┬──────────────────────┘                          │
+ │   ┌─────────────────────────────────────┐                           │
+ │   │       LiteLLM Inference Gateway     │                           │
+ │   │   Deployment — 2 pods               │                           │
+ │   │   Routes per model config in        │                           │
+ │   │   ConfigMap → NVIDIA NIM APIs       │                           │
+ │   └──────────────┬──────────────────────┘                           │
  │                  │ HTTPS → integrate.api.nvidia.com/v1              │
  │                  ▼                                                  │
- │         ┌────────────────────────────────────────┐                 │
- │         │          NVIDIA NIM APIs               │                 │
- │         │  llama-3.1-70b / llama-3.1-8b          │                 │
- │         │  mistral-7b / gemma-2-27b              │                 │
- │         └────────────────────────────────────────┘                 │
+ │         ┌────────────────────────────────────────┐                  │
+ │         │          NVIDIA NIM APIs               │                  │
+ │         │  llama-3.1-70b / llama-3.1-8b          │                  │
+ │         │  mistral-7b / gemma-2-27b              │                  │
+ │         └────────────────────────────────────────┘                  │
  │                                                                     │
  └──────────────────────────┬──────────────────────────────────────────┘
                             │ NetworkPolicy: only owui-app → owui-data
                             ▼
  ┌─────────────────────── owui-data namespace ─────────────────────────┐
  │                                                                     │
- │  ┌──────────────────────┐   ┌──────────────────────────────────┐   │
- │  │  PostgreSQL (CNPG)   │   │  Redis Sentinel                  │   │
- │  │  3-instance cluster  │   │  3 pods                          │   │
- │  │  Auto WAL archiving  │   │  redis + sentinel sidecar        │   │
- │  │  Replica promotion   │   │  Session state, WebSocket coord  │   │
- │  │  PVC: 10Gi + 5Gi WAL │   │  PVC: 5Gi each                  │   │
- │  └──────────────────────┘   └──────────────────────────────────┘   │
+ │  ┌──────────────────────┐   ┌──────────────────────────────────┐    │
+ │  │  PostgreSQL (CNPG)   │   │  Redis Sentinel                  │    │
+ │  │  3-instance cluster  │   │  3 pods                          │    │
+ │  │  Auto WAL archiving  │   │  redis + sentinel sidecar        │    │
+ │  │  Replica promotion   │   │  Session state, WebSocket coord  │    │
+ │  │  PVC: 10Gi + 5Gi WAL │   │  PVC: 5Gi each                   │    │
+ │  └──────────────────────┘   └──────────────────────────────────┘    │
  │                                                                     │
- │  ┌──────────────────────┐   ┌──────────────────────────────────┐   │
- │  │  Qdrant              │   │  Azure Blob Storage              │   │
- │  │  Vector DB for RAG   │   │  File uploads, PDFs, images      │   │
- │  │  Semantic search     │   │  Never touches cluster disk      │   │
- │  │  PVC: 10Gi           │   │  External — always available     │   │
- │  └──────────────────────┘   └──────────────────────────────────┘   │
+ │  ┌──────────────────────┐   ┌──────────────────────────────────┐    │
+ │  │  Qdrant              │   │  Azure Blob Storage              │    │
+ │  │  Vector DB for RAG   │   │  File uploads, PDFs, images      │    │
+ │  │  Semantic search     │   │  Never touches cluster disk      │    │
+ │  │  PVC: 10Gi           │   │  External — always available     │    │
+ │  └──────────────────────┘   └──────────────────────────────────┘    │
  │                                                                     │
  └─────────────────────────────────────────────────────────────────────┘
 
  ┌─────────────────────── monitoring namespace ────────────────────────┐
  │                                                                     │
- │  Prometheus ──────── scrapes via ServiceMonitors / PodMonitors ──► │
- │  ├── Open WebUI API     (OTel → Collector → Prometheus)            │
- │  ├── LiteLLM Gateway    (/metrics on :8000)                        │
- │  ├── PostgreSQL         (CNPG PodMonitor)                          │
- │  ├── Redis              (redis-exporter sidecar → :9121)           │
- │  ├── Qdrant             (/metrics on :6333)                        │
- │  ├── nginx Ingress      (/metrics on :10254)                       │
- │  └── K8s cluster        (kube-state-metrics + node-exporter)       │
+ │  Prometheus ──────── scrapes via ServiceMonitors / PodMonitors ──►  │
+ │  ├── Open WebUI API     (OTel → Collector → Prometheus)             │
+ │  ├── LiteLLM Gateway    (/metrics on :8000)                         │
+ │  ├── PostgreSQL         (CNPG PodMonitor)                           │
+ │  ├── Redis              (redis-exporter sidecar → :9121)            │
+ │  ├── Qdrant             (/metrics on :6333)                         │
+ │  ├── nginx Ingress      (/metrics on :10254)                        │
+ │  └── K8s cluster        (kube-state-metrics + node-exporter)        │
  │                                                                     │
- │  Grafana ──────────── dashboards + alerting UI                     │
- │  AlertManager ──────── routes alerts → email / Slack               │
- │  OTel Collector ─────── receives OTLP from app, exposes /metrics   │
+ │  Grafana ──────────── dashboards + alerting UI                      │
+ │  AlertManager ──────── routes alerts → email / Slack                │
+ │  OTel Collector ─────── receives OTLP from app, exposes /metrics    │
  │                                                                     │
  └─────────────────────────────────────────────────────────────────────┘
 
- ┌─────────────────────── CI/CD (Jenkins) ────────────────────────────┐
+ ┌───────────────────────  CI/CD (Jenkins) ────────────────────────────┐
  │                                                                     │
  │  GitHub Push                                                        │
  │      │                                                              │
  │      ▼                                                              │
- │  Stage 1: Build + Push → Google Artifact Registry                  │
+ │  Stage 1: Build + Push → Google Artifact Registry                   │
  │      │                                                              │
  │      ▼                                                              │
  │  Stage 2: Helm Lint + Dry Run                                       │
  │      │                                                              │
  │      ▼                                                              │
- │  Stage 3: helm upgrade --atomic --namespace owui-app               │
- │      │         └── rolls back entire release if timeout            │
+ │  Stage 3: helm upgrade --atomic --namespace owui-app                │
+ │      │         └── rolls back entire release if timeout             │
  │      ▼                                                              │
- │  Stage 4: Health Check → GET /health → {"status":true}             │
- │      │         └── if FAIL → Stage 5                               │
+ │  Stage 4: Health Check → GET /health → {"status":true}              │
+ │      │         └── if FAIL → Stage 5                                │
  │      ▼                                                              │
- │  Stage 5: helm rollback (automatic, no human needed)               │
+ │  Stage 5: helm rollback (automatic, no human needed)                │
  │                                                                     │
  └─────────────────────────────────────────────────────────────────────┘
 ```
