@@ -55,6 +55,9 @@ config:
       namespace: owui
 
   service:
+    telemetry:
+      metrics:
+        address: "0.0.0.0:8887"
     pipelines:
       metrics:
         receivers: [otlp, prometheus]
