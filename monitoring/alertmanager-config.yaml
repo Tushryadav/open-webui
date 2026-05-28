@@ -14,11 +14,14 @@ spec:
       - matchers:
           - name: severity
             value: critical
-        receiver: critical
+          - name: app
+            value: open-webui
+        receiver: ai-webhook-receiver
+        groupWait: 10s
       - matchers:
           - name: severity
             value: warning
-        receiver: warning
+        receiver: email-only
 
   receivers:
     - name: default
@@ -28,6 +31,14 @@ spec:
           smarthost: smtp.gmail.com:587
           authUsername: your@gmail.com
           authPassword: your-app-password
+
+    - name: ai-webhook-receiver
+      webhookConfigs:
+        - url: http://ai-webhook.open-webui.svc.cluster.local:8000/alert
+          sendResolved: true
+          httpConfig:
+            tlsConfig:
+              insecureSkipVerify: true
 
     - name: critical
       emailConfigs:
