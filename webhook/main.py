@@ -5,7 +5,7 @@ Flow:
   1. Receives alert from Alertmanager (or ArgoCD notifications)
   2. Collects pod logs + helm diff from Kubernetes
   3. Fires ArgoCD rollback to last healthy revision  ← NO AI involved
-  4. Calls Claude API to diagnose the crash          ← AI is read-only
+  4. Calls NVIDIA NIM API to diagnose the crash      ← AI is read-only
   5. Sends email with rollback confirmation + AI fix suggestion
 """
 
@@ -24,18 +24,18 @@ from fastapi.responses import JSONResponse
 app = FastAPI(title="Open WebUI AI Self-Heal Webhook")
 
 # ── Config from environment variables ──────────────────────────────────────
-ANTHROPIC_API_KEY   = os.environ["ANTHROPIC_API_KEY"]
-ARGOCD_SERVER       = os.environ.get("ARGOCD_SERVER", "argocd-server.argocd.svc.cluster.local")
-ARGOCD_TOKEN        = os.environ["ARGOCD_TOKEN"]          # ArgoCD API token
-ARGOCD_APP_NAME     = os.environ.get("ARGOCD_APP_NAME", "open-webui")
-K8S_NAMESPACE       = os.environ.get("K8S_NAMESPACE", "open-webui")
+NVIDIA_API_KEY  = os.environ["NVIDIA_API_KEY"]          # build.nvidia.com API key
+ARGOCD_SERVER   = os.environ.get("ARGOCD_SERVER", "argocd-server.argocd.svc.cluster.local")
+ARGOCD_TOKEN    = os.environ["ARGOCD_TOKEN"]            # ArgoCD API token
+ARGOCD_APP_NAME = os.environ.get("ARGOCD_APP_NAME", "open-webui")
+K8S_NAMESPACE   = os.environ.get("K8S_NAMESPACE", "open-webui")
 
-SMTP_HOST           = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT           = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER           = os.environ["SMTP_USER"]
-SMTP_PASSWORD       = os.environ["SMTP_PASSWORD"]
-ALERT_EMAIL_TO      = os.environ["ALERT_EMAIL_TO"]
-ALERT_EMAIL_FROM    = os.environ.get("ALERT_EMAIL_FROM", SMTP_USER)
+SMTP_HOST       = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT       = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER       = os.environ["SMTP_USER"]
+SMTP_PASSWORD   = os.environ["SMTP_PASSWORD"]
+ALERT_EMAIL_TO  = os.environ["ALERT_EMAIL_TO"]
+ALERT_EMAIL_FROM = os.environ.get("ALERT_EMAIL_FROM", SMTP_USER)
 
 # ── Health check ───────────────────────────────────────────────────────────
 @app.get("/healthz")
@@ -68,10 +68,12 @@ async def handle_alert(request: Request, background_tasks: BackgroundTasks):
 
 # ── Core self-healing flow ─────────────────────────────────────────────────
 async def self_heal_flow(alert: dict):
-    alert_name  = alert["labels"].get("alertname", "Unknown")
-    pod_name    = alert["labels"].get("pod", "")
-    container   = alert["labels"].get("container", "open-webui")
-    fired_at    = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    # Extract fields from the alert payload
+    labels     = alert.get("labels", {})
+    alert_name = alert.get("annotations", {}).get("summary", labels.get("alertname", "Unknown"))
+    pod_name   = labels.get("pod", "")
+    container  = labels.get("container", "open-webui")
+    fired_at   = alert.get("startsAt", datetime.utcnow().isoformat())
 
     print(f"[{fired_at}] Self-heal triggered: {alert_name} | pod={pod_name}")
 
@@ -83,8 +85,8 @@ async def self_heal_flow(alert: dict):
     # ── Step 2: ArgoCD rollback to last healthy revision ──────────────────
     rollback_result = argocd_rollback()
 
-    # ── Step 3: Claude API diagnosis (read-only — no cluster changes) ──────
-    diagnosis = await call_claude(alert_name, pod_logs, pod_desc, helm_diff)
+    # ── Step 3: NVIDIA NIM diagnosis (read-only — no cluster changes) ──────
+    diagnosis = await call_nvidia(alert_name, pod_logs, pod_desc, helm_diff)
 
     # ── Step 4: Send email ─────────────────────────────────────────────────
     send_email(
@@ -140,7 +142,7 @@ def get_helm_diff() -> str:
              "-n", K8S_NAMESPACE, "--no-color"],
             capture_output=True, text=True, timeout=30
         )
-        diff = result.stdout[:3000]  # Cap at 3000 chars for Claude prompt
+        diff = result.stdout[:3000]  # Cap at 3000 chars for the AI prompt
         return diff if diff else "No helm diff available"
     except Exception as e:
         return f"helm diff error: {e}"
@@ -195,21 +197,21 @@ def argocd_rollback() -> dict:
         return {"status": "failed", "reason": str(e)}
 
 
-# ── Claude API diagnosis ───────────────────────────────────────────────────
-async def call_claude(
+# ── NVIDIA NIM API diagnosis ───────────────────────────────────────────────
+async def call_nvidia(
     alert_name: str,
     pod_logs: str,
     pod_desc: str,
     helm_diff: str,
 ) -> dict:
     """
-    Calls Claude API to diagnose the crash.
-    Returns root cause + suggested fix.
-    Claude does NOT touch the cluster — diagnosis only.
+    Calls NVIDIA NIM API (build.nvidia.com) to diagnose the crash.
+    Model: meta/llama-3.1-70b-instruct — free tier on build.nvidia.com
+    Read-only — diagnosis and email only, never touches the cluster.
     """
     prompt = f"""You are a Kubernetes DevOps expert.
 A production pod in the open-webui namespace has crashed.
-Your job is to diagnose the root cause and suggest a precise fix.
+Diagnose the root cause and suggest a precise fix.
 You have NO ability to make changes — your output goes to an email only.
 
 ALERT: {alert_name}
@@ -233,28 +235,55 @@ Respond in this exact JSON format (no markdown, no extra text):
   "safe_to_auto_apply": false
 }}"""
 
+    raw = ""
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
+                "https://integrate.api.nvidia.com/v1/chat/completions",
                 headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
+                    "Authorization": f"Bearer {NVIDIA_API_KEY}",
+                    "Content-Type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": 1000,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "model": "meta/llama-3.1-70b-instruct",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a Kubernetes DevOps expert. Always respond with valid JSON only."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": 1024,
+                    "temperature": 0.2,
+                    "top_p": 0.7,
                 },
             )
             resp.raise_for_status()
-            raw = resp.json()["content"][0]["text"].strip()
-            return json.loads(raw)
+            raw = resp.json()["choices"][0]["message"]["content"].strip()
+
+            # Strip markdown fences if the model adds them
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+
+            return json.loads(raw.strip())
+
     except json.JSONDecodeError:
-        return {"root_cause": raw, "suggested_fix": "See raw output above", "confidence": "low"}
+        return {
+            "root_cause": raw or "Could not parse model response",
+            "suggested_fix": "See raw output above",
+            "confidence": "low"
+        }
     except Exception as e:
-        return {"root_cause": f"Diagnosis failed: {e}", "suggested_fix": "Check logs manually", "confidence": "low"}
+        return {
+            "root_cause": f"Diagnosis failed: {e}",
+            "suggested_fix": "Check pod logs manually",
+            "confidence": "low"
+        }
 
 
 # ── Email ──────────────────────────────────────────────────────────────────
