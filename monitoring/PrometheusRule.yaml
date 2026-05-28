@@ -7,33 +7,77 @@ metadata:
     release: kube-prometheus-stack
 spec:
   groups:
-    # ── Pod Health ────────────────────────────────────────────────────
-    - name: pod-health
+    - name: open-webui.crash
+      interval: 30s
       rules:
-        - alert: PodOOMKilled
-          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+
+      # ── Rule 1: Pod in CrashLoopBackOff ──
+        - alert: OpenWebuiCrashLoopBackOff
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total{
+                namespace="open-webui"
+              }[5m]
+            ) > 3
+          for: 2m
+          labels:
+            severity: critical
+            app: open-webui
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash-looping"
+            description: "Container {{ $labels.container }} restarted {{ $value }} times in 5 min"
+
+      # ── Rule 2: No healthy API pods ──
+        - alert: OpenWebuiNoHealthyPods
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="open-webui",
+              deployment=~".*-api"
+            } == 0
+          for: 1m
+          labels:
+            severity: critical
+            app: open-webui
+          annotations:
+            summary: "Zero healthy API pods in open-webui"
+            description: "Deployment {{ $labels.deployment }} has 0 available replicas"
+
+       # ── Rule 3: High HTTP error rate ──
+        - alert: OpenWebuiHighErrorRate
+          expr: |
+            rate(
+              http_requests_total{
+                namespace="open-webui",
+                status=~"5.."
+              }[2m]
+            ) /
+            rate(
+              http_requests_total{
+                namespace="open-webui"
+              }[2m]
+            ) > 0.05
+          for: 2m
+          labels:
+            severity: critical
+            app: open-webui
+          annotations:
+            summary: "Error rate above 5% in open-webui"
+            description: "HTTP 5xx rate is {{ $value | humanizePercentage }}"
+
+      # ── Rule 4: OOMKilled container ──
+        - alert: OpenWebuiOOMKilled
+          expr: |
+            kube_pod_container_status_last_terminated_reason{
+              namespace="open-webui",
+              reason="OOMKilled"
+            } == 1
           for: 0m
           labels:
             severity: critical
+            app: open-webui
           annotations:
-            summary: "Pod OOMKilled: {{ $labels.pod }}"
-            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} was OOMKilled"
-
-        - alert: PodCrashLooping
-          expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
-          for: 5m
-          labels:
-            severity: critical
-          annotations:
-            summary: "Pod crash looping: {{ $labels.pod }}"
-
-        - alert: PodNotReady
-          expr: kube_pod_status_ready{condition="false"} == 1
-          for: 5m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Pod not ready: {{ $labels.pod }}"
+            summary: "Pod {{ $labels.pod }} was OOMKilled"
+            description: "Container {{ $labels.container }} exceeded memory limit"
 
     # ── API Layer ─────────────────────────────────────────────────────
     - name: api-layer
