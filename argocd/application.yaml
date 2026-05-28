@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: open-webui
+  namespace: argocd
+  # Annotations for webhook notification on sync failure
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.webhook: ai-webhook
+    notifications.argoproj.io/subscribe.on-health-degraded.webhook: ai-webhook
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/<your-org>/open-webui.git   # ← your repo
+    targetRevision: main
+    path: helm
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-webui
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true          # ArgoCD auto-syncs if cluster drifts from Git
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 2                # Only retry twice — then mark failed, let webhook handle it
+      backoff:
+        duration: 30s
+        maxDuration: 2m
+        factor: 2
+
+  # Health check overrides — ArgoCD uses these to mark app Degraded
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas   # Ignore HPA-managed replica count diffs

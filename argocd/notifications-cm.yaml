@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # ── Webhook service endpoint (AI webhook running inside cluster) ──
+  service.webhook.ai-webhook: |
+    url: http://ai-webhook.open-webui.svc.cluster.local:8000
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # ── Trigger: fires when app health turns Degraded ──
+  trigger.on-health-degraded: |
+    - when: app.health.status == 'Degraded'
+      send: [app-degraded-payload]
+
+  # ── Trigger: fires when a sync operation fails ──
+  trigger.on-sync-failed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [app-degraded-payload]
+
+  # ── Template: what gets POSTed to the AI webhook ──
+  template.app-degraded-payload: |
+    webhook:
+      ai-webhook:
+        method: POST
+        body: |
+          {
+            "app_name": "{{.app.metadata.name}}",
+            "namespace": "{{.app.spec.destination.namespace}}",
+            "health_status": "{{.app.status.health.status}}",
+            "sync_status": "{{.app.status.sync.status}}",
+            "revision": "{{.app.status.sync.revision}}",
+            "operation_phase": "{{.app.status.operationState.phase}}",
+            "operation_message": "{{.app.status.operationState.message}}",
+            "last_healthy_revision": "{{.app.status.history | last | .revision}}",
+            "timestamp": "{{now | date \"2006-01-02T15:04:05Z\"}}"
+          }
