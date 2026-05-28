@@ -1,0 +1,122 @@
+---
+# ServiceAccount with permission to read pods/logs in open-webui namespace
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-webhook
+  namespace: open-webui
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-webhook-role
+  namespace: open-webui
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-webhook-rolebinding
+  namespace: open-webui
+subjects:
+  - kind: ServiceAccount
+    name: ai-webhook
+    namespace: open-webui
+roleRef:
+  kind: Role
+  name: ai-webhook-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Secret holding all sensitive config
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-webhook-secrets
+  namespace: open-webui
+type: Opaque
+stringData:
+  ANTHROPIC_API_KEY: "sk-ant-..."          # ← your Claude API key
+  ARGOCD_TOKEN: "..."                       # ← ArgoCD API token (Settings > Accounts)
+  SMTP_USER: "your@gmail.com"
+  SMTP_PASSWORD: "your-app-password"        # Gmail App Password
+  ALERT_EMAIL_TO: "oncall@yourdomain.com"
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-webhook
+  namespace: open-webui
+  labels:
+    app: ai-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-webhook
+  template:
+    metadata:
+      labels:
+        app: ai-webhook
+    spec:
+      serviceAccountName: ai-webhook
+      containers:
+        - name: ai-webhook
+          image: <your-registry>/ai-webhook:latest   # ← push your built image here
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          env:
+            - name: ARGOCD_SERVER
+              value: "argocd-server.argocd.svc.cluster.local"
+            - name: ARGOCD_APP_NAME
+              value: "open-webui"
+            - name: K8S_NAMESPACE
+              value: "open-webui"
+            - name: SMTP_HOST
+              value: "smtp.gmail.com"
+            - name: SMTP_PORT
+              value: "587"
+            - name: ALERT_EMAIL_FROM
+              value: "alerts@yourdomain.com"
+          envFrom:
+            - secretRef:
+                name: ai-webhook-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+---
+# ClusterIP service — reachable by Alertmanager inside cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-webhook
+  namespace: open-webui
+spec:
+  selector:
+    app: ai-webhook
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP
