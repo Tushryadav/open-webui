@@ -3,11 +3,6 @@
 # =====================================================================
 api:
   image:
-  observability:
-  serviceMonitor:
-    enabled: true
-    interval: 30s
-    path: /metrics
     repository: ghcr.io/open-webui/open-webui
     tag: "main"
     pullPolicy: IfNotPresent
@@ -23,7 +18,7 @@ api:
   persistence:
     enabled: false
     size: 2Gi
-    storageClass: ""
+    storageClass: "managed-csi"
 
   # Additional Environment variables
   extraEnv:
@@ -118,10 +113,10 @@ postgres:
       enablePodMonitor: false
     storage:
       size: 10Gi
-      storageClass: ""
+      storageClass: "managed-csi"
     walStorage:
       size: 5Gi
-      storageClass: ""
+      storageClass: "managed-csi"
   
 # Configuration when postgres.cnpg.enabled is false (connecting to an external PG database)
   external:
@@ -137,7 +132,7 @@ redis:
     masterName: mymaster
   storage:
     size: 5Gi
-    storageClass: ""
+    storageClass: "managed-csi"
   
   # Connect to an external Redis cluster
   external:
@@ -153,7 +148,7 @@ qdrant:
     pullPolicy: IfNotPresent
   storage:
     size: 10Gi
-    storageClass: ""
+    storageClass: "managed-csi"
   
 # Connect to an external Qdrant instance
   external:
@@ -186,7 +181,7 @@ external:
 # Connect to external blob storage
 azure:
   enabled: true
-  storageEndpoint: ""  
+  storageEndpoint: "https://<storage-account-name>.blob.core.windows.net"  
   storageKey: ""
   storageContainer: "" 
 # =====================================================================
