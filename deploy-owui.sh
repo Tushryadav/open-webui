@@ -113,12 +113,6 @@ kubectl create namespace argocd
  
 kubectl apply -n argocd \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
- 
-# Wait for argocd-server to be ready
-kubectl wait --namespace argocd \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/name=argocd-server \
-  --timeout=180s
 
 kubectl apply -n argocd \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/notifications/install.yaml
@@ -127,6 +121,12 @@ curl -sSL -o /tmp/argocd \
   https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 chmod +x /tmp/argocd
 sudo mv /tmp/argocd /usr/local/bin/argocd
+
+kubectl create secret generic ai-webhook-secrets \
+  --namespace owui-app \
+  --from-literal=SMTP_USER="your@gmail.com" \
+  --from-literal=SMTP_PASSWORD="your-gmail-app-password" \
+  --from-literal=ALERT_EMAIL_TO="oncall@yourdomain.com"
 
 ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret \
   -n argocd -o jsonpath="{.data.password}" | base64 -d)
