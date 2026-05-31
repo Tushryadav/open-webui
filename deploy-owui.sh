@@ -59,47 +59,32 @@ helm install cnpg cnpg/cloudnative-pg \
   --create-namespace
 
 # ──cert-manager ──────────────────────────────────────────────────────────────────
-helm repo add cnpg https://cloudnative-pg.github.io/charts
-helm repo update
 
-helm install cnpg cnpg/cloudnative-pg \
-  --namespace cnpg-system \
-  --create-namespace
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
 
-# Wait until operator pod is Running
-kubectl get pods -n cnpg-system -w
+# Wait for all 3 pods Running
+kubectl get pods -n cert-manager -w
 
 # ──nginx Ingress Controller ──────────────────────────────────────────────────────────────────
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
 helm install ingress-nginx ingress-nginx/ingress-nginx \
-  --namespace ingress-nginx \
+  --namespace ingress-nginx \s
   --create-namespace \
   --set controller.replicaCount=1 \
   --set controller.service.type=LoadBalancer
 
 # Wait for pod ready
-kubectl get pods -n ingress-nginx -w
+```bash
+kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s
+kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=cloudnative-pg -n cnpg-system --timeout=120s
+```
 
 # ──create namespace ──────────────────────────────────────────────────────────────────
 kubectl create namespace owui-app
 kubectl create namespace owui-data
 kubectl create namespace monitoring
-
-# ──Postgres Credentials ──────────────────────────────────────────────────────────────────
-PG_USER=$(kubectl get secret owui-data-postgres-app -n owui-data \
-  -o jsonpath='{.data.username}' | base64 -d)
-
-PG_PASS=$(kubectl get secret owui-data-postgres-app -n owui-data \
-  -o jsonpath='{.data.password}' | base64 -d)
-
-PG_DB=$(kubectl get secret owui-data-postgres-app -n owui-data \
-  -o jsonpath='{.data.dbname}' | base64 -d)
-
-echo "User: $PG_USER"
-echo "Pass: $PG_PASS"
-echo "DB:   $PG_DB"
 
 # Install kube-prometheus-stack
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -108,7 +93,6 @@ helm repo update
 
 ## Step 23 — Install ArgoCD
 
-```bash
 kubectl create namespace argocd
  
 kubectl apply -n argocd \
