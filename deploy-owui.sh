@@ -11,6 +11,22 @@ echo "=== Installing dependencies ==="
 sudo apt-get update -y && sudo apt upgrade -y
 sudo apt-get install -y curl git jq openssl unzip ca-certificates gnupg
 
+# ── Jenkins ───────────────────────────────────────────────────────────────
+sudo apt update
+sudo apt install fontconfig openjdk-21-jre
+java -version
+
+sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt update
+sudo apt install jenkins
+
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+
 # ── Docker ───────────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
     curl -fsSL https://get.docker.com | sh
@@ -62,9 +78,6 @@ helm install cnpg cnpg/cloudnative-pg \
 
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
 
-# Wait for all 3 pods Running
-kubectl get pods -n cert-manager -w
-
 # ──nginx Ingress Controller ──────────────────────────────────────────────────────────────────
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
@@ -74,12 +87,6 @@ helm install ingress-nginx ingress-nginx/ingress-nginx \
   --create-namespace \
   --set controller.replicaCount=1 \
   --set controller.service.type=LoadBalancer
-
-# Wait for pod ready
-```bash
-kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=cloudnative-pg -n cnpg-system --timeout=120s
-```
 
 # ──create namespace ──────────────────────────────────────────────────────────────────
 kubectl create namespace owui-app
@@ -130,3 +137,6 @@ echo ""
 echo "=== All dependencies installed ==="
 echo "Run: source ~/.bashrc"
 echo "Then verify: kubectl get nodes"
+echo "=== cnpg-system ===" && kubectl get pods -n cnpg-system -w
+echo "=== cert-manager ===" && kubectl get pods -n cert-manager -w
+echo "=== ingress-nginx ===" && kubectl get pods -n ingress-nginx -w
