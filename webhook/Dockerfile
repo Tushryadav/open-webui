@@ -3,9 +3,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install kubectl and helm CLI
-RUN apt-get update && \
-    apt-get install -y git && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl ca-certificates && \
+    curl -LO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && mv kubectl /usr/local/bin/ && \
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install helm diff plugin
 RUN helm plugin install https://github.com/databus23/helm-diff
