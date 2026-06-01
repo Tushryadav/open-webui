@@ -18,7 +18,7 @@ api:
   persistence:
     enabled: false
     size: 2Gi
-    storageClass: "managed-csi"
+    storageClass: ""
 
   # Additional Environment variables
   extraEnv:
@@ -113,10 +113,10 @@ postgres:
       enablePodMonitor: false
     storage:
       size: 10Gi
-      storageClass: "managed-csi"
+      storageClass: ""
     walStorage:
       size: 5Gi
-      storageClass: "managed-csi"
+      storageClass: ""
   
 # Configuration when postgres.cnpg.enabled is false (connecting to an external PG database)
   external:
@@ -132,7 +132,7 @@ redis:
     masterName: mymaster
   storage:
     size: 5Gi
-    storageClass: "managed-csi"
+    storageClass: ""
   
   # Connect to an external Redis cluster
   external:
@@ -148,7 +148,7 @@ qdrant:
     pullPolicy: IfNotPresent
   storage:
     size: 10Gi
-    storageClass: "managed-csi"
+    storageClass: ""
   
 # Connect to an external Qdrant instance
   external:
