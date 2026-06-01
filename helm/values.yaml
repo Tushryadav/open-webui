@@ -64,7 +64,7 @@ api:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/websocket-services: "open-webui-api"
     hosts:
-      - host: "openwebui.<public_ip>.nip.io"
+      - host: "openwebui.20.84.153.165.nip.io"
         paths:
           - path: /
             pathType: Prefix
@@ -181,9 +181,9 @@ external:
 # Connect to external blob storage
 azure:
   enabled: true
-  storageEndpoint: "https://<storage-account-name>.blob.core.windows.net"  
+  storageEndpoint: "https://openwebui01.blob.core.windows.net"  
   storageKey: ""
-  storageContainer: "" 
+  storageContainer: "openwebui" 
 # =====================================================================
 # 3. MODEL INFERENCE & ROUTING LAYER
 # =====================================================================
