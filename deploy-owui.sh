@@ -30,7 +30,8 @@ sudo systemctl start jenkins
 # ── Docker ───────────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
     curl -fsSL https://get.docker.com | sh
-    sudo usermod -aG docker $USER   
+    sudo usermod -aG docker $USER 
+    sudo usermod -aG docker jenkins  
     echo "Docker installed — re-login or run: newgrp docker"
 else
     echo "Docker already installed: $(docker --version)"
@@ -48,6 +49,9 @@ if ! command -v k3s &>/dev/null; then
 else
     echo "K3s already installed"
 fi
+# Give Jenkins kubeconfig access
+sudo cp /etc/rancher/k3s/k3s.yaml /var/lib/jenkins/kubeconfig
+sudo chown jenkins:jenkins /var/lib/jenkins/kubeconfig
 
 # ── kubectl ───────────────────────────────────────────────────────────────
 if ! command -v kubectl &>/dev/null; then
@@ -72,7 +76,19 @@ helm repo update
 
 helm install cnpg cnpg/cloudnative-pg \
   --namespace cnpg-system \
-  --create-namespace
+  --create-namespace &
+
+kubectl wait --for=condition=Ready pod \
+  -l app.kubernetes.io/name=cloudnative-pg \
+  -n cnpg-system --timeout=120s
+echo "CNPG operator ready"
+
+# ── Trivy (used by Jenkins Build Webhook Image stage) ────────────────────
+if ! command -v trivy &>/dev/null; then
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+      | sudo sh -s -- -b /usr/local/bin
+    echo "Trivy installed"
+fi
 
 # ──cert-manager ──────────────────────────────────────────────────────────────────
 
@@ -83,10 +99,15 @@ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
 helm install ingress-nginx ingress-nginx/ingress-nginx \
-  --namespace ingress-nginx \s
+  --namespace ingress-nginx \
   --create-namespace \
   --set controller.replicaCount=1 \
-  --set controller.service.type=LoadBalancer
+  --set controller.service.type=LoadBalancer &
+
+kubectl rollout status deployment/ingress-nginx-controller \
+  -n ingress-nginx --timeout=120s
+echo "nginx ingress ready"
+
 
 # ──create namespace ──────────────────────────────────────────────────────────────────
 kubectl create namespace owui-app
@@ -107,6 +128,11 @@ kubectl apply -n argocd \
 
 kubectl apply -n argocd \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/notifications/install.yaml
+
+kubectl wait --for=condition=Ready pod \
+  -l app.kubernetes.io/name=argocd-server \
+  -n argocd --timeout=180s
+echo "ArgoCD ready"
 
 curl -sSL -o /tmp/argocd \
   https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
