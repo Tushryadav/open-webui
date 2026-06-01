@@ -8,7 +8,7 @@ api:
     pullPolicy: IfNotPresent
 
   # Default to 3 replicas for HA (scaling up to 10 via HPA)
-  replicaCount: 3
+  replicaCount: 1
 
   # Secret key for cookie signing. If empty, a random key will be generated in secrets.yaml
   webuiSecretKey: ""
@@ -73,8 +73,8 @@ api:
   # Autoscaling (HPA)
   hpa:
     enabled: true
-    minReplicas: 3
-    maxReplicas: 10
+    minReplicas: 1
+    maxReplicas: 2
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
 
@@ -108,7 +108,7 @@ api:
 postgres:
   cnpg:
     enabled: true
-    instances: 3
+    instances: 1
     monitoring:
       enablePodMonitor: false
     storage:
@@ -126,7 +126,7 @@ postgres:
 # Redis Sentinel (Session & WebSockets coordination)
 redis:
   enabled: true
-  replicas: 3
+  replicas: 1
   sentinel:
     enabled: true
     masterName: mymaster
@@ -195,7 +195,7 @@ gateway:
     repository: ghcr.io/berriai/litellm
     tag: main-latest
     pullPolicy: IfNotPresent
-  replicaCount: 2
+  replicaCount: 1
   
   # LiteLLM Master API Key
   masterKey: "sk-litellm-master-key-12345"

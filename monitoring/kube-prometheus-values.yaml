@@ -83,6 +83,22 @@ grafana:
 # ── AlertManager ──────────────────────────────────────────────────────
 alertmanager:
   enabled: true
+  config:
+    receivers:
+      - name: ai-webhook
+        webhook_configs:
+          - url: "http://ai-webhook.owui-app.svc.cluster.local:8000/alert"
+            send_resolved: false
+    route:
+      receiver: ai-webhook
+      group_by: ["alertname", "app"]
+      group_wait: 30s
+      repeat_interval: 1h
+      routes:
+        - matchers:
+            - severity = critical
+            - app = open-webui
+          receiver: ai-webhook
   alertmanagerSpec:
     resources:
       requests:
