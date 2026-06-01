@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        ACR_NAME     = "openwebuiacr"
-        ACR_URL      = "openwebuiacr.azurecr.io"
-        WEBHOOK_REPO = "openwebuiacr.azurecr.io/ai-webhook"
+        ACR_NAME     = "openwebuiacrpersonal01"
+        ACR_URL      = "openwebuiacrpersonal01.azurecr.io"
+        WEBHOOK_REPO = "openwebuiacrpersonal01.azurecr.io/ai-webhook"
         IMAGE_TAG    = "${env.BUILD_NUMBER}"
     }
 
@@ -93,13 +93,17 @@ pipeline {
                         kubectl patch svc ingress-nginx-controller \
                           -n ingress-nginx \
                           --type='merge' \
-                          -p "{\\"spec\\":{\\"externalIPs\\":[\\"\\$EXTERNAL_IP\\"]}}"
+                          -p '{"spec":{"externalIPs":["'"$EXTERNAL_IP"'"]}}'
  
-                        echo "Demoting Traefik to ClusterIP so nginx owns port 80/443"
+                    if kubectl get svc traefik -n kube-system >/dev/null 2>&1; then
+                        echo "Demoting Traefik to ClusterIP"
                         kubectl patch svc traefik \
-                          -n kube-system \
-                          --type='merge' \
-                          -p '{"spec":{"type":"ClusterIP"}}'
+                        -n kube-system \
+                        --type merge \
+                        -p '{"spec":{"type":"ClusterIP"}}'
+                    else
+                    echo "Traefik service not found, skipping."
+                    fi
  
                         echo "=== Verifying ingress-nginx service ==="
                         kubectl get svc -n ingress-nginx
@@ -125,7 +129,7 @@ pipeline {
                         docker build \
                           -t ${WEBHOOK_REPO}:${IMAGE_TAG} \
                           -t ${WEBHOOK_REPO}:${env.DEPLOY_ENV}-latest \
-                          selfheal/
+                          webhook/
  
                         echo "=== Trivy scan (report only — pipeline continues) ==="
                         trivy image \
