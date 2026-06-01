@@ -351,8 +351,7 @@ pipeline {
                             -n argocd -o jsonpath="{.data.password}" | base64 -d) \
                           --insecure
 
-                        ARGOCD_TOKEN=$(argocd account generate-token --account admin) 
-                        echo "ArgoCD token: $ARGOCD_TOKEN" 
+                        ARGOCD_TOKEN=\$(argocd account generate-token --account admin) 
  
                         # Adopt owui-data
                         argocd app create owui-data \
