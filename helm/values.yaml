@@ -64,7 +64,7 @@ api:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/websocket-services: "open-webui-api"
     hosts:
-      - host: "openwebui.20.84.153.165.nip.io"
+      - host: "openwebui.20.221.57.224.nip.io"
         paths:
           - path: /
             pathType: Prefix
