@@ -14,6 +14,7 @@ pipeline {
         stage('Set Environment') {
             steps {
                 script {
+                    echo "BRANCH_NAME=${env.BRANCH_NAME}"
                     if (env.BRANCH_NAME == 'main') {
                         env.DEPLOY_ENV      = 'production'
                         env.NAMESPACE_APP   = 'owui-app'
