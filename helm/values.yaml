@@ -84,7 +84,8 @@ api:
   # Pod Disruption Budget
   pdb:
     enabled: true
-    maxUnavailable: 1
+    minAvailable: 1
+    maxUnavailable: 3
 
   # Pod distribution policies
   affinity:
@@ -111,9 +112,9 @@ api:
 postgres:
   cnpg:
     enabled: true
-    instances: 1
+    instances: 3
     monitoring:
-      enablePodMonitor: false
+      enablePodMonitor: true
     storage:
       size: 10Gi
       storageClass: "managed-csi"
