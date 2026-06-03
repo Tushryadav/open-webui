@@ -11,11 +11,6 @@ echo "=== Installing dependencies ==="
 sudo apt-get update -y && sudo apt upgrade -y
 sudo apt-get install -y curl git jq openssl unzip ca-certificates gnupg
 
-# ── Azure CLI ───────────────────────────────────────────────────────────────
-curl -fsSL 'https://azurecliprod.blob.core.windows.net/$root/deb_install.sh' | sudo bash
-az version
-az account show
-
 # ── Jenkins ───────────────────────────────────────────────────────────────
 sudo apt update
 sudo apt install fontconfig openjdk-21-jre
@@ -32,6 +27,38 @@ sudo apt install jenkins
 sudo systemctl enable jenkins
 sudo systemctl start jenkins
 
+# ── Azure CLI ───────────────────────────────────────────────────────────────
+curl -fsSL 'https://azurecliprod.blob.core.windows.net/$root/deb_install.sh' | sudo bash
+az version
+az account show
+
+# ── kubectl ───────────────────────────────────────────────────────────────
+if ! command -v kubectl &>/dev/null; then
+    curl -LO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+    echo "kubectl installed"
+else
+    echo "kubectl already installed: $(kubectl version --client --short 2>/dev/null)"
+fi
+
+# ── Install kubelogin ───────────────────────────────────────────────────────────────
+curl -LO https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip
+unzip kubelogin-linux-amd64.zip
+sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
+sudo chmod +x /usr/local/bin/kubelogin
+kubelogin --version
+
+# ── Get AKS Cluster Credentials ───────────────────────────────────────────────────────────────
+
+az aks list --output table
+az aks get-credentials \
+    --resource-group <RESOURCE_GROUP> \
+    --name <AKS_CLUSTER_NAME>
+
+az aks get-credentials \
+    --resource-group rg-dev \
+    --name aks-dev
+    
 # ── Docker ───────────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
     curl -fsSL https://get.docker.com | sh
@@ -42,30 +69,10 @@ else
     echo "Docker already installed: $(docker --version)"
 fi
 
-# ── K3s ──────────────────────────────────────────────────────────────────
-if ! command -v k3s &>/dev/null; then
-    curl -sfL https://get.k3s.io | sh -s - --disable traefik --write-kubeconfig-mode 644
-    mkdir -p ~/.kube
-    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-    sudo chown $USER:$USER ~/.kube/config
-    echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
-    export KUBECONFIG=~/.kube/config
-    echo "K3s installed"
-else
-    echo "K3s already installed"
-fi
+
 # Give Jenkins kubeconfig access
 sudo cp /etc/rancher/k3s/k3s.yaml /var/lib/jenkins/kubeconfig
 sudo chown jenkins:jenkins /var/lib/jenkins/kubeconfig
-
-# ── kubectl ───────────────────────────────────────────────────────────────
-if ! command -v kubectl &>/dev/null; then
-    curl -LO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-    chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-    echo "kubectl installed"
-else
-    echo "kubectl already installed: $(kubectl version --client --short 2>/dev/null)"
-fi
 
 # ── Helm ──────────────────────────────────────────────────────────────────
 if ! command -v helm &>/dev/null; then
