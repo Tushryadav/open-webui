@@ -15,7 +15,7 @@ pipeline {
             steps {
                 script {
                     echo "BRANCH_NAME=${env.BRANCH_NAME}"
-                    if (env.GIT_BRANCH?.contains('main')) {
+                    if (env.GIT_BRANCH?.contains('prod')) {
                         env.DEPLOY_ENV      = 'production'
                         env.NAMESPACE_APP   = 'owui-app'
                         env.NAMESPACE_DATA  = 'owui-data'
@@ -24,9 +24,10 @@ pipeline {
                         env.RELEASE_APP     = 'owui-app'
                         env.RELEASE_DATA    = 'owui-data'
                         env.EXTERNAL_IP_CRED = 'external-ip-production'
+                        env.RESOURCE_GROUP = 'aks.prod'
 
 
-                    } else if (env.BRANCH_NAME == 'staging') {
+                    } else if (env.GIT_BRANCH?.contains('staging')) {
                         env.DEPLOY_ENV      = 'staging'
                         env.NAMESPACE_APP   = 'owui-app'
                         env.NAMESPACE_DATA  = 'owui-data'
@@ -35,8 +36,9 @@ pipeline {
                         env.RELEASE_APP     = 'owui-app'
                         env.RELEASE_DATA    = 'owui-data'
                         env.EXTERNAL_IP_CRED = 'external-ip-staging'
+                        env.RESOURCE_GROUP = 'aks.staging'
 
-                    } else if (env.BRANCH_NAME == 'dev') {
+                    } else if (env.GIT_BRANCH?.contains('staging')) {
                         env.DEPLOY_ENV      = 'dev'
                         env.NAMESPACE_APP   = 'owui-app'
                         env.NAMESPACE_DATA  = 'owui-data'
@@ -45,11 +47,38 @@ pipeline {
                         env.RELEASE_APP     = 'owui-app'
                         env.RELEASE_DATA    = 'owui-data'
                         env.EXTERNAL_IP_CRED = 'external-ip-dev'
+                        env.RESOURCE_GROUP = 'aks.dev'
 
                     } else {
                         error("Branch '${env.BRANCH_NAME}' is not configured for deployment.")
                     }
                     echo "Deploying to: ${env.DEPLOY_ENV}"
+                }
+            }
+        }
+
+        // ── Auth ────────────────────────────────────────────────────────────
+        stage('Auth to Artifact Registry') {
+            when { expression { env.DEPLOY_ENV != 'none' } }
+            steps {
+                sh '''
+                    az aks get-credentials \
+                        --resource-group ${env.RESOURCE_GROUP} \
+                        --name aks-dev ${env.CLUSTER_NAME} \
+                   '''
+            }
+        }
+
+        stage('Connect to Cluster') {
+            when { expression { env.DEPLOY_ENV != 'none' } }
+            steps {
+                sh """
+                    kubectl config use-context ${env.CLUSTER_NAME}
+                    echo "Current Context:"
+                    kubectl config current-context
+                    kubectl get nodes
+                """
+            
                 }
             }
         }
