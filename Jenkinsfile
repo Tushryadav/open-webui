@@ -38,7 +38,7 @@ pipeline {
                         env.EXTERNAL_IP_CRED = 'external-ip-staging'
                         env.RESOURCE_GROUP = 'aks.staging'
 
-                    } else if (env.GIT_BRANCH?.contains('staging')) {
+                    } else if (env.GIT_BRANCH?.contains('dev')) {
                         env.DEPLOY_ENV      = 'dev'
                         env.NAMESPACE_APP   = 'owui-app'
                         env.NAMESPACE_DATA  = 'owui-data'
@@ -64,7 +64,7 @@ pipeline {
                 sh '''
                     az aks get-credentials \
                         --resource-group ${env.RESOURCE_GROUP} \
-                        --name aks-dev ${env.CLUSTER_NAME} \
+                        --name ${env.CLUSTER_NAME} \
                    '''
             }
         }
