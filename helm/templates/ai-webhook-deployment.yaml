@@ -1,10 +1,9 @@
----
+# ServiceAccount with permission to read pods/logs in open-webui namespace
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: ai-webhook
   namespace: owui-app
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -13,30 +12,41 @@ metadata:
   namespace: owui-app
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/log", "events"]   # Step 7: added events
+    resources: ["pods", "pods/log"]
     verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets"]
     verbs: ["get", "list"]
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: ai-webhook-rolebinding
-  namespace: owui-app
+  namespace: owui-app 
 subjects:
   - kind: ServiceAccount
     name: ai-webhook
-    namespace: owui-app
+    namespace: owui-app 
 roleRef:
   kind: Role
   name: ai-webhook-role
   apiGroup: rbac.authorization.k8s.io
-
-# Step 1: Secret manifest REMOVED — created by Jenkins at deploy time
-
 ---
+# Secret holding all sensitive config
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-webhook-secrets
+  namespace: owui-app 
+type: Opaque
+stringData:
+  ANTHROPIC_API_KEY: ""          # ← your Claude API key
+  ARGOCD_TOKEN: ""                       # ← ArgoCD API token (Settings > Accounts)
+  SMTP_USER: ""
+  SMTP_PASSWORD: ""        # Gmail App Password
+  ALERT_EMAIL_TO: ""
+---
+# Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,7 +55,7 @@ metadata:
   labels:
     app: ai-webhook
 spec:
-  replicas: 2                        # Step 4: HA — two instances
+  replicas: 2
   selector:
     matchLabels:
       app: ai-webhook
@@ -54,57 +64,50 @@ spec:
       labels:
         app: ai-webhook
     spec:
-      serviceAccountName: ai-webhook
-      volumes:
-        - name: argocd-tls            # Step 8: mount ArgoCD CA cert
-          secret:
-            secretName: argocd-secret
-            items:
-              - key: tls.crt
-                path: tls.crt
-      containers:
+      template:
+        spec:
+          volumes:
+            - name: argocd-tls
+              secret:
+                secretName: argocd-secret   # ArgoCD stores its TLS cert here
+                items:
+                  - key: tls.crt
+                    path: tls.crt
+          containers:
         - name: ai-webhook
-          image: <your-registry>/ai-webhook:latest
+          image: <your-registry>/ai-webhook:latest   # ← push your built image here
           imagePullPolicy: Always
           ports:
-            - name: http              # Step 9: named port
-              containerPort: 8000
-              protocol: TCP
+            - containerPort: 8000
           livenessProbe:
             httpGet:
               path: /healthz
-              port: http              # Step 9: by name
+              port: 8000
             initialDelaySeconds: 10
-            periodSeconds: 15         # Step 3: was 30
-            failureThreshold: 3
+            periodSeconds: 30
+            failureThreshold: 3      # restart after 3 consecutive failures (45s total)
             timeoutSeconds: 5
-          readinessProbe:             # Step 3: added
+          readinessProbe:
             httpGet:
               path: /healthz
-              port: http
-            initialDelaySeconds: 5
+              port: 8000
+            initialDelaySeconds: 5   # FastAPI starts fast — 5s is enough
             periodSeconds: 10
             failureThreshold: 2
             timeoutSeconds: 3
-          volumeMounts:
-            - name: argocd-tls        # Step 8
-              mountPath: /etc/argocd-tls
-              readOnly: true
           env:
             - name: ARGOCD_SERVER
               value: "argocd-server.argocd.svc.cluster.local"
             - name: ARGOCD_APP_NAME
               value: "open-webui"
             - name: K8S_NAMESPACE
-              value: "owui-app"       # Step 5: was "open-webui"
+              value: "open-webui"
             - name: SMTP_HOST
               value: "smtp.gmail.com"
             - name: SMTP_PORT
               value: "587"
             - name: ALERT_EMAIL_FROM
               value: "alerts@yourdomain.com"
-            - name: ARGOCD_TLS_CERT
-              value: "/etc/argocd-tls/tls.crt"   # Step 8
           envFrom:
             - secretRef:
                 name: ai-webhook-secrets
@@ -115,24 +118,22 @@ spec:
             limits:
               cpu: 200m
               memory: 256Mi
-
 ---
+# ClusterIP service — reachable by Alertmanager inside cluster
 apiVersion: v1
 kind: Service
 metadata:
   name: ai-webhook
-  namespace: owui-app               # Step 2: was "owui -app" (typo fixed)
+  namespace: owui-app
 spec:
   selector:
     app: ai-webhook
   ports:
-    - name: http                    # Step 9: named port
-      port: 8000
-      targetPort: http
+    - port: 8000
+      targetPort: 8000
   type: ClusterIP
-
----
-apiVersion: policy/v1              # Step 4: added PDB
+# addded Pod disruption Budget
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: ai-webhook-pdb
