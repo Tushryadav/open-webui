@@ -30,6 +30,7 @@ sudo systemctl start jenkins
 # ── Azure CLI ───────────────────────────────────────────────────────────────
 curl -fsSL 'https://azurecliprod.blob.core.windows.net/$root/deb_install.sh' | sudo bash
 az version
+az login
 az account show
 
 # ── kubectl ───────────────────────────────────────────────────────────────
@@ -42,23 +43,53 @@ else
 fi
 
 # ── Install kubelogin ───────────────────────────────────────────────────────────────
-curl -LO https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip
-unzip kubelogin-linux-amd64.zip
-sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
-sudo chmod +x /usr/local/bin/kubelogin
+if ! command -v kubelogin &>/dev/null; then
+    curl -LO https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip
+    unzip -o kubelogin-linux-amd64.zip
+    sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
+    sudo chmod +x /usr/local/bin/kubelogin
+    rm -rf bin kubelogin-linux-amd64.zip
+fi
 kubelogin --version
 
 # ── Get AKS Cluster Credentials ───────────────────────────────────────────────────────────────
+declare -A AKS_CLUSTERS=(
+    ["dev"]="rg-dev:aks-dev"
+    ["staging"]="rg-staging:aks-staging"
+    ["production"]="rg-production:aks-production"
+)
+ 
+mkdir -p ~/.kube
+ 
+for ENV in dev staging production; do
+    IFS=':' read -r RG CLUSTER <<< "${AKS_CLUSTERS[$ENV]}"
+    KUBE_FILE="$HOME/.kube/config-${ENV}"
+ 
+    echo "  Fetching kubeconfig: $CLUSTER ($RG) → $KUBE_FILE"
+    az aks get-credentials \
+        --resource-group "$RG" \
+        --name "$CLUSTER" \
+        --file "$KUBE_FILE" \
+        --overwrite-existing
+ 
+    # Convert kubeconfig to use kubelogin (required for AKS AAD auth)
+    KUBECONFIG="$KUBE_FILE" kubelogin convert-kubeconfig -l azurecli
+ 
+    echo "  $ENV kubeconfig ready: $KUBE_FILE"
+done
+ 
+# Give Jenkins access to all three kubeconfigs
+sudo mkdir -p /var/lib/jenkins/.kube
+for ENV in dev staging production; do
+    sudo cp "$HOME/.kube/config-${ENV}" /var/lib/jenkins/.kube/config-${ENV}
+done
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
+echo "Kubeconfigs copied for Jenkins"
 
-az aks list --output table
-az aks get-credentials \
-    --resource-group <RESOURCE_GROUP> \
-    --name <AKS_CLUSTER_NAME>
+# ── switch cluster ───────────────────────────────────────────────────────────────
+kubectl config current-context
+kubectl config use-context aks-staging
 
-az aks get-credentials \
-    --resource-group rg-dev \
-    --name aks-dev
-    
 # ── Docker ───────────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
     curl -fsSL https://get.docker.com | sh
@@ -68,11 +99,6 @@ if ! command -v docker &>/dev/null; then
 else
     echo "Docker already installed: $(docker --version)"
 fi
-
-
-# Give Jenkins kubeconfig access
-sudo cp /etc/rancher/k3s/k3s.yaml /var/lib/jenkins/kubeconfig
-sudo chown jenkins:jenkins /var/lib/jenkins/kubeconfig
 
 # ── Helm ──────────────────────────────────────────────────────────────────
 if ! command -v helm &>/dev/null; then
