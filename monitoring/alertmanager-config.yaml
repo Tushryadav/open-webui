@@ -34,7 +34,7 @@ spec:
 
     - name: ai-webhook-receiver
       webhookConfigs:
-        - url: http://ai-webhook.open-webui.svc.cluster.local:8000/alert
+        - url: http://ai-webhook.owui-app.svc.cluster.local:8000/alert
           sendResolved: true
           httpConfig:
             tlsConfig:
