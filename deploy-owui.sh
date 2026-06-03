@@ -11,6 +11,11 @@ echo "=== Installing dependencies ==="
 sudo apt-get update -y && sudo apt upgrade -y
 sudo apt-get install -y curl git jq openssl unzip ca-certificates gnupg
 
+# ── Azure CLI ───────────────────────────────────────────────────────────────
+curl -fsSL 'https://azurecliprod.blob.core.windows.net/$root/deb_install.sh' | sudo bash
+az version
+az account show
+
 # ── Jenkins ───────────────────────────────────────────────────────────────
 sudo apt update
 sudo apt install fontconfig openjdk-21-jre
