@@ -130,10 +130,11 @@ postgres:
 # Redis Sentinel (Session & WebSockets coordination)
 redis:
   enabled: true
-  replicas: 1
+  replicas: 3
   sentinel:
     enabled: true
     masterName: mymaster
+    quorum: 2 
   storage:
     size: 5Gi
     storageClass: "managed-csi"
