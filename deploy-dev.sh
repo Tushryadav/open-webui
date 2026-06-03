@@ -53,37 +53,22 @@ fi
 kubelogin --version
 
 # ── Get AKS Cluster Credentials ───────────────────────────────────────────────────────────────
-declare -A AKS_CLUSTERS=(
-    ["dev"]="rg-dev:aks-dev"
-    ["staging"]="rg-staging:aks-staging"
-    ["production"]="rg-production:aks-production"
-)
- 
+
 mkdir -p ~/.kube
- 
-for ENV in dev staging production; do
-    IFS=':' read -r RG CLUSTER <<< "${AKS_CLUSTERS[$ENV]}"
-    KUBE_FILE="$HOME/.kube/config-${ENV}"
- 
-    echo "  Fetching kubeconfig: $CLUSTER ($RG) → $KUBE_FILE"
-    az aks get-credentials \
-        --resource-group "$RG" \
-        --name "$CLUSTER" \
-        --file "$KUBE_FILE" \
-        --overwrite-existing
- 
-    # Convert kubeconfig to use kubelogin (required for AKS AAD auth)
-    KUBECONFIG="$KUBE_FILE" kubelogin convert-kubeconfig -l azurecli
- 
-    echo "  $ENV kubeconfig ready: $KUBE_FILE"
-done
- 
-# Give Jenkins access to all three kubeconfigs
+
+az aks get-credentials \
+  --resource-group rg-dev \
+  --name aks-dev \
+  --file ~/.kube/config-dev \
+  --overwrite-existing
+
+KUBECONFIG=~/.kube/config-dev \
+kubelogin convert-kubeconfig -l azurecli
+
+# Give Jenkins access to kubeconfigs
 sudo mkdir -p /var/lib/jenkins/.kube
-for ENV in dev staging production; do
-    sudo cp "$HOME/.kube/config-${ENV}" /var/lib/jenkins/.kube/config-${ENV}
-done
-sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
+sudo cp "$HOME/.kube/config-${ENV}" /var/lib/jenkins/.kube/config-dev
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube/config-dev
 echo "Kubeconfigs copied for Jenkins"
 
 # ── switch cluster ───────────────────────────────────────────────────────────────
