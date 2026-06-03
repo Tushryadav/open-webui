@@ -60,7 +60,7 @@ metadata:
   labels:
     app: ai-webhook
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: ai-webhook
@@ -82,6 +82,17 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 30
+            failureThreshold: 3      # restart after 3 consecutive failures (45s total)
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5   # FastAPI starts fast — 5s is enough
+            periodSeconds: 10
+            failureThreshold: 2
+            timeoutSeconds: 3
           env:
             - name: ARGOCD_SERVER
               value: "argocd-server.argocd.svc.cluster.local"
@@ -120,3 +131,15 @@ spec:
     - port: 8000
       targetPort: 8000
   type: ClusterIP
+
+# addded Pod disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-webhook-pdb
+  namespace: owui-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ai-webhook
