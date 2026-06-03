@@ -18,7 +18,7 @@ api:
   persistence:
     enabled: false
     size: 2Gi
-    storageClass: ""
+    storageClass: "managed-csi"
 
   # Additional Environment variables
   extraEnv:
@@ -113,10 +113,10 @@ postgres:
       enablePodMonitor: false
     storage:
       size: 10Gi
-      storageClass: ""
+      storageClass: "managed-csi"
     walStorage:
       size: 5Gi
-      storageClass: ""
+      storageClass: "managed-csi"
   
 # Configuration when postgres.cnpg.enabled is false (connecting to an external PG database)
   external:
@@ -132,7 +132,7 @@ redis:
     masterName: mymaster
   storage:
     size: 5Gi
-    storageClass: ""
+    storageClass: "managed-csi"
   
   # Connect to an external Redis cluster
   external:
@@ -167,7 +167,7 @@ minio:
   bucketName: "open-webui"
   storage:
     size: 20Gi
-    storageClass: ""
+    storageClass: "managed-csi"
   
 # Connect to external S3 storage
 external:
@@ -267,7 +267,7 @@ ollama:
     pullPolicy: IfNotPresent
   storage:
     size: 50Gi
-    storageClass: ""
+    storageClass: "managed-csi"
   nodeSelector:
     cloud.google.com/gke-gpu-pool: "gpu-pool-b"
   tolerations:
