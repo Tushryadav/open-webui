@@ -16,7 +16,7 @@ spec:
           expr: |
             increase(
               kube_pod_container_status_restarts_total{
-                namespace="open-webui"
+                namespace="open-app"
               }[5m]
             ) > 3
           for: 2m
@@ -31,7 +31,7 @@ spec:
         - alert: OpenWebuiNoHealthyPods
           expr: |
             kube_deployment_status_replicas_available{
-              namespace="open-webui",
+              namespace="open-app",
               deployment=~".*-api"
             } == 0
           for: 1m
@@ -47,7 +47,7 @@ spec:
           expr: |
             rate(
               http_requests_total{
-                namespace="open-webui",
+                namespace="open-app",
                 status=~"5.."
               }[2m]
             ) /
@@ -68,7 +68,7 @@ spec:
         - alert: OpenWebuiOOMKilled
           expr: |
             kube_pod_container_status_last_terminated_reason{
-              namespace="open-webui",
+              namespace="open-app",
               reason="OOMKilled"
             } == 1
           for: 0m
@@ -84,8 +84,8 @@ spec:
       rules:
         - alert: APIHighMemory
           expr: |
-            container_memory_usage_bytes{namespace="owui-app", container="open-webui"}
-            / container_spec_memory_limit_bytes{namespace="owui-app", container="open-webui"}
+            container_memory_usage_bytes{namespace="owui-app", container="open-app"}
+            / container_spec_memory_limit_bytes{namespace="owui-app", container="open-app"}
             > 0.80
           for: 5m
           labels:
