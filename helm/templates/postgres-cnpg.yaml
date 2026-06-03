@@ -10,7 +10,7 @@ spec:
   instances: {{ .Values.postgres.cnpg.instances }}
 
   # Supervised primary update strategy is recommended for HA
-  primaryUpdateStrategy: unsupervised
+  primaryUpdateStrategy: supervised
 
   # Bootstrap configuration
   bootstrap:
