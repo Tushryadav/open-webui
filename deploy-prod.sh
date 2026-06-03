@@ -57,18 +57,18 @@ kubelogin --version
 mkdir -p ~/.kube
 
 az aks get-credentials \
-  --resource-group rg-dev \
-  --name aks-dev \
-  --file ~/.kube/config-dev \
+  --resource-group rg-prod \
+  --name aks-prod \
+  --file ~/.kube/config-prod \
   --overwrite-existing
 
-KUBECONFIG=~/.kube/config-dev \
+KUBECONFIG=~/.kube/config-prod \
 kubelogin convert-kubeconfig -l azurecli
 
 # Give Jenkins access to kubeconfigs
 sudo mkdir -p /var/lib/jenkins/.kube
-sudo cp "$HOME/.kube/config-${ENV}" /var/lib/jenkins/.kube/config-dev
-sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube/dev
+sudo cp "$HOME/.kube/config-${ENV}" /var/lib/jenkins/.kube/config-prod
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube/config-prod
 echo "Kubeconfigs copied for Jenkins"
 
 # ── switch cluster ───────────────────────────────────────────────────────────────
