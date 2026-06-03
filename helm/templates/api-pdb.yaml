@@ -7,6 +7,8 @@ metadata:
     {{- include "open-webui.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
+  {{- if .Values.api.pdb.minAvailable }}
+  minAvailable: {{ .Values.api.pdb.minAvailable }}
   maxUnavailable: {{ .Values.api.pdb.maxUnavailable }}
   selector:
     matchLabels:
