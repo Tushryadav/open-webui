@@ -70,12 +70,23 @@ spec:
         app: ai-webhook
     spec:
       serviceAccountName: ai-webhook
+      volumes:
+        - name: argocd-tls
+          secret:
+            secretName: argocd-secret   # ArgoCD stores its TLS cert here
+            items:
+              - key: tls.crt
+                path: tls.crt
       containers:
         - name: ai-webhook
           image: <your-registry>/ai-webhook:latest   # ← push your built image here
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
+          volumeMounts:                     # Issue 7 fix — was missing
+            - name: argocd-tls
+              mountPath: /etc/argocd-tls
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /healthz
@@ -88,13 +99,15 @@ spec:
             - name: ARGOCD_APP_NAME
               value: "open-webui"
             - name: K8S_NAMESPACE
-              value: "open-webui"
+              value: "open-app"
             - name: SMTP_HOST
               value: "smtp.gmail.com"
             - name: SMTP_PORT
               value: "587"
             - name: ALERT_EMAIL_FROM
               value: "alerts@yourdomain.com"
+            - name: ARGOCD_TLS_CERT
+              value: "/etc/argocd-tls/tls.crt"
           envFrom:
             - secretRef:
                 name: ai-webhook-secrets
@@ -120,3 +133,15 @@ spec:
     - port: 8000
       targetPort: 8000
   type: ClusterIP
+
+# Added PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-webhook-pdb
+  namespace: owui-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ai-webhookYou are out of free messages until 6:00 PMGet more
