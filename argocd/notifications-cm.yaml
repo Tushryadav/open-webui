@@ -6,7 +6,7 @@ metadata:
 data:
   # ── Webhook service endpoint (AI webhook running inside cluster) ──
   service.webhook.ai-webhook: |
-    url: http://ai-webhook.open-webui.svc.cluster.local:8000
+    url: http://ai-webhook.open-app.svc.cluster.local:8000
     headers:
       - name: Content-Type
         value: application/json
