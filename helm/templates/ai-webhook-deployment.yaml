@@ -1,9 +1,11 @@
+---
 # ServiceAccount with permission to read pods/logs in open-webui namespace
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: ai-webhook
   namespace: owui-app
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -17,6 +19,7 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets"]
     verbs: ["get", "list"]
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -31,6 +34,7 @@ roleRef:
   kind: Role
   name: ai-webhook-role
   apiGroup: rbac.authorization.k8s.io
+
 ---
 # Secret holding all sensitive config
 apiVersion: v1
@@ -40,11 +44,12 @@ metadata:
   namespace: owui-app 
 type: Opaque
 stringData:
-  ANTHROPIC_API_KEY: ""          # ← your Claude API key
-  ARGOCD_TOKEN: ""                       # ← ArgoCD API token (Settings > Accounts)
-  SMTP_USER: ""
-  SMTP_PASSWORD: ""        # Gmail App Password
-  ALERT_EMAIL_TO: ""
+  ANTHROPIC_API_KEY: "sk-ant-..."          # ← your Claude API key
+  ARGOCD_TOKEN: "..."                       # ← ArgoCD API token (Settings > Accounts)
+  SMTP_USER: "your@gmail.com"
+  SMTP_PASSWORD: "your-app-password"        # Gmail App Password
+  ALERT_EMAIL_TO: "oncall@yourdomain.com"
+
 ---
 # Deployment
 apiVersion: apps/v1
@@ -55,7 +60,7 @@ metadata:
   labels:
     app: ai-webhook
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: ai-webhook
@@ -64,16 +69,8 @@ spec:
       labels:
         app: ai-webhook
     spec:
-      template:
-        spec:
-          volumes:
-            - name: argocd-tls
-              secret:
-                secretName: argocd-secret   # ArgoCD stores its TLS cert here
-                items:
-                  - key: tls.crt
-                    path: tls.crt
-          containers:
+      serviceAccountName: ai-webhook
+      containers:
         - name: ai-webhook
           image: <your-registry>/ai-webhook:latest   # ← push your built image here
           imagePullPolicy: Always
@@ -85,16 +82,6 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 30
-            failureThreshold: 3      # restart after 3 consecutive failures (45s total)
-            timeoutSeconds: 5
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 5   # FastAPI starts fast — 5s is enough
-            periodSeconds: 10
-            failureThreshold: 2
-            timeoutSeconds: 3
           env:
             - name: ARGOCD_SERVER
               value: "argocd-server.argocd.svc.cluster.local"
@@ -118,13 +105,14 @@ spec:
             limits:
               cpu: 200m
               memory: 256Mi
+
 ---
 # ClusterIP service — reachable by Alertmanager inside cluster
 apiVersion: v1
 kind: Service
 metadata:
   name: ai-webhook
-  namespace: owui-app
+  namespace: owui -app
 spec:
   selector:
     app: ai-webhook
@@ -132,14 +120,3 @@ spec:
     - port: 8000
       targetPort: 8000
   type: ClusterIP
-# addded Pod disruption Budget
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: ai-webhook-pdb
-  namespace: owui-app
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: ai-webhook
