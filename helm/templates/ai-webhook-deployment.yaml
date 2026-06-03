@@ -44,11 +44,11 @@ metadata:
   namespace: owui-app 
 type: Opaque
 stringData:
-  ANTHROPIC_API_KEY: "sk-ant-..."          # ← your Claude API key
-  ARGOCD_TOKEN: "..."                       # ← ArgoCD API token (Settings > Accounts)
-  SMTP_USER: "your@gmail.com"
-  SMTP_PASSWORD: "your-app-password"        # Gmail App Password
-  ALERT_EMAIL_TO: "oncall@yourdomain.com"
+  ANTHROPIC_API_KEY: ""          # ← your Claude API key
+  ARGOCD_TOKEN: ""                       # ← ArgoCD API token (Settings > Accounts)
+  SMTP_USER: ""
+  SMTP_PASSWORD: ""        # Gmail App Password
+  ALERT_EMAIL_TO: ""
 
 ---
 # Deployment
