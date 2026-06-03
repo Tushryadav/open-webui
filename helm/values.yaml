@@ -4,11 +4,11 @@
 api:
   image:
     repository: ghcr.io/open-webui/open-webui
-    tag: "main"
+    tag: "0.9.6"
     pullPolicy: IfNotPresent
 
   # Default to 3 replicas for HA (scaling up to 10 via HPA)
-  replicaCount: 1
+  replicaCount: 3
 
   # Secret key for cookie signing. If empty, a random key will be generated in secrets.yaml
   webuiSecretKey: ""
@@ -68,13 +68,16 @@ api:
         paths:
           - path: /
             pathType: Prefix
-    tls: []
+    tls:
+      - secretName: open-webui-tls          # cert-manager creates this secret
+      hosts:
+        - "openwebui.20.221.57.224.nip.io"
 
   # Autoscaling (HPA)
   hpa:
     enabled: true
-    minReplicas: 1
-    maxReplicas: 2
+    minReplicas: 2
+    maxReplicas: 10
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
 
@@ -163,7 +166,7 @@ minio:
     tag: RELEASE.2024-05-10T01-39-18Z
     pullPolicy: IfNotPresent
   accessKey: "admin"
-  secretKey: "supersecretadminpass"
+  secretKey: ""
   bucketName: "open-webui"
   storage:
     size: 20Gi
@@ -193,12 +196,12 @@ gateway:
   enabled: true
   image:
     repository: ghcr.io/berriai/litellm
-    tag: main-latest
+    tag: "1.86.3"
     pullPolicy: IfNotPresent
   replicaCount: 1
   
   # LiteLLM Master API Key
-  masterKey: "sk-litellm-master-key-12345"
+  masterKey: ""
   
   # Models configuration maps LiteLLM router paths to LLM engines
   config: |
@@ -237,7 +240,7 @@ vllm:
   enabled: false
   image:
     repository: vllm/vllm-openai
-    tag: latest
+    tag: "0.22.0"
     pullPolicy: IfNotPresent
   modelName: "mistralai/Mistral-7B-Instruct-v0.2"
   replicas: 1
@@ -263,7 +266,7 @@ ollama:
   enabled: false
   image:
     repository: ollama/ollama
-    tag: latest
+    tag: "0.30.1"
     pullPolicy: IfNotPresent
   storage:
     size: 50Gi
