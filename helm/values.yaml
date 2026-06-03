@@ -248,15 +248,15 @@ vllm:
   replicas: 1
   resources:
     limits:
-      nvidia.com/gpu: "500Mi"
-      cpu: "500Mi"
-      memory: "1Gi"
+      nvidia.com/gpu: "1"
+      cpu: "8000m"
+      memory: "24Gi"
     requests:
-      nvidia.com/gpu: "500Mi"
-      cpu: "500Mi"
-      memory: "1Gi"
+      nvidia.com/gpu: "1"
+      cpu: "4000m"
+      memory: "16gi"
   nodeSelector:
-    cloud.google.com/gke-gpu-pool: "gpu-pool-a"
+    kubernetes.azure.com/agentpool: "gpu-pool"
   tolerations:
     - key: "sku"
       operator: "Equal"
@@ -289,6 +289,7 @@ networkPolicies:
 
 observability:
   serviceMonitor:
-    enabled: false
-    interval: 30s
+    enabled: true
+    interval: 15s
     path: /metrics
+    namespace: monitoring 
