@@ -34,5 +34,5 @@ spec:
 
   # Monitoring configuration
   monitoring:
-    enablePodMonitor: true
+    enablePodMonitor: {{ .Values.postgres.cnpg.monitoring.enablePodMonitor }}
 {{- end }}
