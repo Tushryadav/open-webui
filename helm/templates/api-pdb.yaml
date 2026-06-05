@@ -15,3 +15,5 @@ spec:
       {{- include "open-webui.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: api
 {{- end }}
+{{- end }}
+

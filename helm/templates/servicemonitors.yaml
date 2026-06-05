@@ -5,7 +5,7 @@ metadata:
   name: {{ include "open-webui.fullname" . }}-api-monitor
   labels:
     {{- include "open-webui.labels" . | nindent 4 }}
-     release: kube-prometheus-stack
+    release: kube-prometheus-stack
 spec:
   selector:
     matchLabels:

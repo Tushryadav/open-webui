@@ -102,32 +102,38 @@ spec:
               value: "redis"
             - name: ENABLE_WEBSOCKET_SUPPORT
               value: "true"
-            - name: WEBSOCKET_REDIS_URL
-              {{- if .Values.redis.enabled }}
-              {{- if .Values.redis.sentinel.enabled }}
-              value: "redis://{{ .Release.Name }}-redis-sentinel:26379/0?sentinel={{ .Values.redis.sentinel.masterName }}"
-              {{- else }}
-              value: "redis://{{ .Release.Name }}-redis-master:6379/0"
-              {{- end }}
-              {{- else if .Values.redis.external.enabled }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "open-webui.fullname" . }}-secrets
-                  key: external-redis-url
-              {{- end }}
+            {{- if .Values.redis.enabled }}
+            {{- if .Values.redis.sentinel.enabled }}
+            - name: REDIS_SENTINEL_HOSTS
+              value: "{{ .Release.Name }}-redis-sentinel"
+            - name: REDIS_SENTINEL_PORT
+              value: "26379"
+            - name: WEBSOCKET_SENTINEL_HOSTS
+              value: "{{ .Release.Name }}-redis-sentinel"
+            - name: WEBSOCKET_SENTINEL_PORT
+              value: "26379"
             - name: REDIS_URL
-              {{- if .Values.redis.enabled }}
-              {{- if .Values.redis.sentinel.enabled }}
-              value: "redis://{{ .Release.Name }}-redis-sentinel:26379/0?sentinel={{ .Values.redis.sentinel.masterName }}"
-              {{- else }}
+              value: "redis://{{ .Values.redis.sentinel.masterName }}:6379/0"
+            - name: WEBSOCKET_REDIS_URL
+              value: "redis://{{ .Values.redis.sentinel.masterName }}:6379/0"
+            {{- else }}
+            - name: REDIS_URL
               value: "redis://{{ .Release.Name }}-redis-master:6379/0"
-              {{- end }}
-              {{- else if .Values.redis.external.enabled }}
+            - name: WEBSOCKET_REDIS_URL
+              value: "redis://{{ .Release.Name }}-redis-master:6379/0"
+            {{- end }}
+            {{- else if .Values.redis.external.enabled }}
+            - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "open-webui.fullname" . }}-secrets
                   key: external-redis-url
-              {{- end }}
+            - name: WEBSOCKET_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-redis-url
+            {{- end }}
             {{- end }}
 
             # ---------------------------------------------------------
@@ -150,6 +156,43 @@ spec:
             # ---------------------------------------------------------
             # MinIO / S3 Object Storage Configuration
             # ---------------------------------------------------------
+            {{- if .Values.minio.enabled }}
+            - name: STORAGE_PROVIDER
+              value: "s3"
+            - name: S3_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-minio:9000"
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: minio-access-key
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: minio-secret-key
+            - name: S3_BUCKET_NAME
+              value: "{{ .Values.minio.bucketName }}"
+            {{- else if .Values.external.enabled }}
+            - name: STORAGE_PROVIDER
+              value: "s3"
+            - name: S3_ENDPOINT_URL
+              value: "{{ .Values.external.endpoint }}"
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-s3-access-key
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-webui.fullname" . }}-secrets
+                  key: external-s3-secret-key
+            - name: S3_BUCKET_NAME
+              value: "{{ .Values.external.bucketName }}"
+            - name: S3_REGION_NAME
+              value: "{{ .Values.external.region }}"
+            {{- else if .Values.azure.enabled }}
             - name: STORAGE_PROVIDER
               value: "azure"
             - name: AZURE_STORAGE_ENDPOINT
@@ -167,6 +210,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "open-webui.fullname" . }}-secrets
                   key: azure-storage-container
+            {{- end }}
 
             # ---------------------------------------------------------
             # Inference / Model Endpoints Configuration

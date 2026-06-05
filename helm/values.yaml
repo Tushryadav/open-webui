@@ -70,8 +70,8 @@ api:
             pathType: Prefix
     tls:
       - secretName: open-webui-tls          # cert-manager creates this secret
-      hosts:
-        - "openwebui.20.221.57.224.nip.io"
+        hosts:
+          - "openwebui.20.221.57.224.nip.io"
 
   # Autoscaling (HPA)
   hpa:
