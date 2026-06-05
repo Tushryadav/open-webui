@@ -200,7 +200,7 @@ gateway:
     repository: ghcr.io/berriai/litellm
     tag: "1.86.3"
     pullPolicy: IfNotPresent
-  replicaCount: 1
+  replicaCount: 2
   
   # LiteLLM Master API Key
   masterKey: ""
@@ -245,7 +245,7 @@ vllm:
     tag: "0.22.0"
     pullPolicy: IfNotPresent
   modelName: "mistralai/Mistral-7B-Instruct-v0.2"
-  replicas: 1
+  replicas: 2
   resources:
     limits:
       nvidia.com/gpu: "1"
