@@ -312,7 +312,7 @@ pipeline {
                           --values ${env.VALUES_FILE} \
                           --set azure.storageKey="\$AZURE_STORAGE_KEY" \
                           --set gateway.nvidiaApiKey="\$NVIDIA_API_KEY" \
-                          --set gateway.masterkey="\$MASTERKRY_LLM" \
+                          --set gateway.masterkey="\$MASTERKEY_LLM" \
                           --set postgres.cnpg.enabled=false \
                           --set redis.enabled=false \
                           --set qdrant.enabled=false \
