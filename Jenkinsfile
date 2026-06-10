@@ -295,6 +295,9 @@ pipeline {
                     string(
                         credentialsId: 'nvidia-api-key',
                         variable: 'NVIDIA_API_KEY'
+                    string(
+                        credentialsId: 'liteLLM-masterkey',
+                        variable: 'MASTERKEY_LLM'
                     )
                 ]) {
                     sh """
@@ -308,6 +311,7 @@ pipeline {
                           --values ${env.VALUES_FILE} \
                           --set azure.storageKey="\$AZURE_STORAGE_KEY" \
                           --set gateway.nvidiaApiKey="\$NVIDIA_API_KEY" \
+                          --set gateway.masterkey="\$MASTERKRY_LLM" \
                           --set postgres.cnpg.enabled=false \
                           --set redis.enabled=false \
                           --set qdrant.enabled=false \
