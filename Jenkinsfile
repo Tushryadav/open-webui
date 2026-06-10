@@ -206,7 +206,6 @@ pipeline {
                           --set azure.storageKey="\$AZURE_STORAGE_KEY" \
                           --set gateway.nvidiaApiKey="\$NVIDIA_API_KEY" \
                           --set gateway.enabled=false \
-                          --set api.replicaCount=0 \
                           --set api.hpa.enabled=false \
                           --set api.ingress.enabled=false \
                           --set vllm.enabled=false \
