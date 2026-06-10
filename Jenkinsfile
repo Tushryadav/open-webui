@@ -295,6 +295,7 @@ pipeline {
                     string(
                         credentialsId: 'nvidia-api-key',
                         variable: 'NVIDIA_API_KEY'
+                    ),
                     string(
                         credentialsId: 'liteLLM-masterkey',
                         variable: 'MASTERKEY_LLM'
